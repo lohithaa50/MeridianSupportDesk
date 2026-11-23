@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Report an order issue | Meridian</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 40px 16px;
+      background: #f3f7f5;
+      color: #24352f;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    main {
+      width: min(100%, 620px);
+      margin: 0 auto;
+    }
+
+    .brand {
+      margin: 0 0 8px;
+      color: #147d66;
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+    }
+
+    .intro {
+      margin: 10px 0 24px;
+      color: #61716b;
+      line-height: 1.5;
+    }
+
+    form {
+      padding: 26px;
+      border: 1px solid #dce7e1;
+      border-radius: 14px;
+      background: white;
+      box-shadow: 0 6px 22px #20312c12;
+    }
+
+    .field {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .hint {
+      margin: 0 0 8px;
+      color: #697971;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    select,
+    textarea {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid #cbd8d2;
+      border-radius: 8px;
+      background: white;
+      color: #24352f;
+      font: inherit;
+    }
+
+    textarea {
+      min-height: 130px;
+      resize: vertical;
+    }
+
+    select:focus,
+    textarea:focus {
+      border-color: #147d66;
+      outline: 3px solid #147d6625;
+    }
+
+    button {
+      width: 100%;
+      padding: 13px 16px;
+      border: 0;
+      border-radius: 8px;
+      background: #147d66;
+      color: white;
+      font: inherit;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #0f6653;
+    }
+
+    .demo-note {
+      margin: 16px 0 0;
+      color: #77857e;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 24px 12px;
+      }
+
+      form {
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: 26px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <p class="brand">Meridian Support Desk</p>
+    <h1>Report an order issue</h1>
+    <p class="intro">
+      Tell us what happened. Our support team will review your request and follow up.
+    </p>
+
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+      <p class="hint" role="status">{{ message }}</p>
+    {% endfor %}
+
+    <form action="{{ url_for('submit') }}" method="post" enctype="multipart/form-data">
+      <div class="field">
+        <label for="customer">Your name</label>
+        <select id="customer" name="customer_id" required>
+          <option value="">Choose your name</option>
+          {% for customer in customers %}
+            <option value="{{ customer[0] }}">{{ customer[1] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="order">Which order needs help?</label>
+        <p class="hint" id="order-hint" aria-live="polite">Choose your name to see your orders.</p>
+        <select id="order" name="order_id" aria-describedby="order-hint" required disabled>
+          <option value="">Choose your name first</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="issue">What went wrong?</label>
+        <select id="issue" name="issue_type" required>
+          <option value="">Choose an issue type</option>
+          <option value="late_delivery">Late delivery</option>
+          <option value="missing_item">Missing item</option>
+          <option value="damaged_item">Damaged item</option>
+          <option value="wrong_item">Wrong item</option>
+          <option value="billing_question">Billing question</option>
+          <option value="other">Something else</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="description">Describe the problem</label>
+        <p class="hint">Include any details that will help us understand what happened.</p>
+        <textarea
+          id="description"
+          name="description"
+          maxlength="1000"
+          placeholder="For example: My order arrived, but one item was missing."
+          required
+        ></textarea>
+      </div>
+
+      <div class="field" id="photo-field">
+        <label id="photo-label" for="damage-photo">Attach a photo (optional)</label>
+        <p class="hint" id="photo-hint">PNG, JPG, JPEG, or WEBP, under 5 MB. Required for damaged items.</p>
+        <input id="damage-photo" type="file" name="damage_photo"
+               accept="image/png,image/jpeg,image/webp" aria-describedby="photo-hint">
+      </div>
+
+      <button type="submit">Submit support request</button>
+    </form>
+
+    <p class="demo-note">Meridian Support Desk demo • Uses fictional sample data</p>
+  </main>
+  <script>
+    const orders = {{ orders | tojson }};
+    const customerSelect = document.getElementById('customer');
+    const orderSelect = document.getElementById('order');
+    const orderHint = document.getElementById('order-hint');
+
+    function updateOrders() {
+      const customerId = customerSelect.value;
+      const customerOrders = orders.filter(order => String(order[2]) === customerId);
+      const placeholder = !customerId ? 'Choose your name first'
+        : customerOrders.length ? 'Choose an order' : 'No orders available';
+      orderSelect.replaceChildren(new Option(placeholder, ''));
+      for (const order of customerOrders) {
+        orderSelect.add(new Option(order[1], order[0]));
+      }
+      orderSelect.disabled = customerOrders.length === 0;
+      orderHint.textContent = !customerId ? 'Choose your name to see your orders.'
+        : customerOrders.length ? 'Choose the order connected to your issue.'
+        : 'No orders are linked to this customer yet. Contact support for help.';
+      document.querySelector('button[type="submit"]').disabled = customerOrders.length === 0;
+    }
+
+    customerSelect.addEventListener('change', updateOrders);
+    updateOrders();
+  </script>
+  <script>
+const issueSelect = document.getElementById("issue");
+const photoLabel = document.getElementById("photo-label");
+const photoInput = document.getElementById("damage-photo");
+
+function updatePhotoField() {
+  const damaged = issueSelect.value === "damaged_item";
+  photoLabel.textContent = damaged ? "Photo of the damaged item (required)" : "Attach a photo (optional)";
+  photoInput.required = damaged;
+}
+
+issueSelect.addEventListener("change", updatePhotoField);
+updatePhotoField();
+</script>
+</body>
+</html>
+

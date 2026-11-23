@@ -1,0 +1,375 @@
+# Meridian Support Desk
+
+Meridian Support Desk is a small web application that helps customers report problems with their orders and helps support staff manage those requests. A customer describes a problem, receives a ticket number, and tracks the case. Staff can review the order, record replies, and update the case status.
+
+
+
+## The problem we are solving
+
+An order can arrive late, contain a missing or incorrect item, or arrive damaged. Without a shared record, a customer may need to repeat the problem and staff may lose track of what has been done.
+
+Our application gives each request a ticket number. It connects the issue to the right customer, order, and pharmacy, stores any photo, and keeps a history of status changes and messages.
+
+## Who uses the application
+
+**Customers** report an order issue, see their submitted tickets, attach a photo, and mark an active case as resolved when the problem is fixed.
+
+**Support staff** review requests in a staff dashboard, filter the list, inspect the order and photo, record replies, and change ticket statuses. The project also includes staff assignment controls, which have a known issue described below.
+
+## The full workflow
+
+```text
+Customer opens the support form
+              |
+Selects their name and one of their orders
+              |
+Chooses an issue and describes the problem
+              |
+Attaches a photo if needed
+              |
+Submits the request and receives a ticket number
+              |
+Staff reviews the request and records replies or progress
+Staff reply emails are captured locally by MailHog
+              |
+The problem is fixed
+              |
+Customer or staff marks the ticket as Resolved
+              |
+The ticket remains available as a record
+```
+
+The usual statuses are **Open**, **In progress**, **Waiting on customer**, and **Resolved**. Staff can select a supported status directly; the application does not require every case to pass through every status.
+
+Staff can also open the **Weekly support report** at `/report` at any time to review recent ticket volumes and average resolution times. The report includes tickets created in the last seven days, including tickets that are still open.
+
+## What we built 
+
+### Customer and order selection
+
+The form now reads customer names from the database instead of using a fixed list in the HTML. We added **Javid** and two sample orders alongside the existing customer, **Avery Johnson**.
+
+| Customer | Order number | Delivery status |
+|---|---|---|
+| Avery Johnson | MD-20481 | In transit |
+| Avery Johnson | MD-20482 | Delivered |
+| Javid | MD-20483 | In transit |
+| Javid | MD-20484 | Delivered |
+
+JavaScript updates the order dropdown when a customer is selected. The server also checks that the submitted order belongs to that customer before saving the request. These sample records are included in `setup_db.py` so they are available when setting up the database.
+
+### Ticket submission and tracking
+
+The customer chooses an issue type and writes a description. Supported issues are late delivery, missing item, damaged item, wrong item, billing question, and other.
+
+A successful submission saves the ticket, saves the description as the first conversation message, and records the initial Open status. The customer receives a ticket number on `confirmation.html`.
+
+We added `my_tickets.html` to show the selected customer's ticket numbers, orders, pharmacies, issues, statuses, submission times, attachments, and available actions. It also displays a helpful message when there are no tickets.
+
+The browser session remembers the customer from the last successfully submitted request. Opening My support tickets before submitting a request redirects the user to the form. This is a demo customer-selection flow rather than a separate customer login system.
+
+### Photo attachments
+
+Photos are **required for damaged-item requests** and **optional for other issue types**. Supported filename extensions are PNG, JPG, JPEG, and WEBP. The application limits the entire submitted request to 5 MB, so the image should be smaller than 5 MB.
+
+We fixed the upload form so the photo travels with the customer, order, issue, and description in the same submission. We also corrected the JavaScript reference that controls the damaged-item photo requirement.
+
+Uploaded files receive generated names and are stored in `static/uploads/`. The database stores the relative path in the ticket's `photo_path` column. The folder is created when a photo is first saved.
+
+Customers see a preview and a **View photo** link on My support tickets. Staff can open the same attachment from the ticket detail page. Existing tickets without a photo now have an **Upload photo** control. The server checks ticket ownership and prevents this control from replacing an existing attachment.
+
+Adding the photo column to the database does not create pictures for older tickets. A customer must upload an actual image before those tickets can display one.
+
+### Customer resolution
+
+Customers can mark their own Open, In progress, or Waiting on customer tickets as resolved. The optional message is saved to the conversation when it contains text. An empty or spaces-only message still allows the status update and does not create an empty conversation entry.
+
+The application records the previous and new statuses in `status_history`. Repeating the resolution request does not add another resolution-history entry. Customers cannot resolve another customer's ticket or change a Closed ticket back to Resolved through this action.
+
+
+### Staff dashboard and responses
+
+The staff ticket list can be filtered by status, issue type, pharmacy, and age. Opening a ticket shows the customer, order, pharmacy, delivery status, description, messages, attachment, and current status.
+
+Staff can write a reply or choose a saved reply. Saved replies fill in the customer's name and order number. Replies are stored in the ticket conversation, and the application also sends a test email through MailHog. The conversation is displayed on the staff detail page; the current customer list shows ticket information and attachments rather than the full conversation.
+
+The dashboard also shows whether the first staff reply is approaching or exceeding its response target:
+
+| Issue | First response target |
+|---|---|
+| Missing item | 2 hours |
+| Late delivery | 4 hours |
+| Damaged item | 4 hours |
+| Wrong item | 4 hours |
+| Billing question | 24 hours |
+| Other | 24 hours |
+
+These targets measure time to the first recorded staff reply, not time to fix the problem. Before a reply, a ticket can be On track, Due soon, or Overdue. Due soon starts at 75 percent of its target time. After a reply, the label indicates whether staff responded on time or late.
+
+### Email testing with MailHog
+
+We added **MailHog** to test email notifications from the application. A test email was sent successfully during setup. MailHog captures the messages locally so we can inspect the subject, recipient, and message content in its web inbox.
+
+When staff clicks **Send reply** on a ticket, `add_ticket_reply()` first saves the reply to the database. It then calls `send_reply_notification()` in `home.py`. That function builds an email containing the customer's name, order number, ticket number, and staff reply, and sends it to MailHog using Python's built-in email and SMTP libraries.
+
+```text
+Staff sends a reply from the ticket detail page
+              |
+The reply is saved in ticket_messages
+              |
+send_reply_notification() builds the email
+              |
+The application sends it to localhost:1025
+              |
+MailHog captures the email for inspection in its web inbox
+```
+
+| Setting | Current value |
+|---|---|
+| SMTP server used by the application | `localhost` |
+| SMTP port | `1025` |
+| MailHog web inbox with its default configuration | `http://localhost:8025` |
+| Test sender | `support@meridian.example.test` |
+| Test recipient | `customer@example.test` |
+| Subject | `Update on support ticket #<ticket_id>` |
+
+The recipient is currently a fixed test address for every ticket. MailHog captures these emails locally; this setup does not deliver notifications to customers' real inboxes.
+
+To check the flow, start MailHog using the existing local installation, start the Flask application, open a staff ticket, and submit a reply. Open the MailHog web inbox to inspect the captured message. The application prints a confirmation when sending succeeds.
+
+If MailHog is not running or the SMTP connection fails, the reply remains saved in the ticket conversation. The application prints the email error in the Flask terminal so the email problem does not prevent staff from saving the reply.
+
+### Weekly support report
+
+We added `report.html` to give staff a summary of recent support activity. Instead of opening every ticket individually, staff can see which issue types have been reported most often and how long recorded resolutions have taken.
+
+To use the report:
+
+1. Start the application and open `http://127.0.0.1:5000/report` in the browser.
+2. Review the table, which groups tickets by issue type and shows the number of tickets and the average resolution time in hours.
+3. Use the summary to identify common issues and review how quickly cases are being resolved. The largest ticket groups appear first.
+4. Click **Back to support form** to return to the customer form.
+
+The report covers a rolling seven-day period based on when each ticket was created, rather than a fixed Monday-to-Sunday calendar week. Ticket counts include every status. The average uses only tickets with a recorded change to Resolved in their status history; unresolved tickets do not count as zero hours.
+
+For each included ticket, the calculation measures the time from creation to its first recorded resolution. If a ticket was later reopened, its first recorded resolution still contributes to the average. Results are rounded to one decimal place. When an issue group has no recorded resolutions, the page displays **Not resolved yet**. If there are no tickets created in the last seven days, it displays an empty-state message.
+
+The code flow is:
+
+```text
+Browser opens GET /report
+              |
+weekly_report() in home.py reads tickets and status_history
+              |
+Groups recent tickets by issue type and calculates counts and averages
+              |
+Passes rows and readable issue labels to report.html
+              |
+Jinja displays the weekly support report table
+```
+
+The report reads the existing database tables; it does not create a separate report table. Its resolution-time measurement is different from the staff dashboard's first-response target.
+
+## How the project files work together
+
+```text
+MeridianSupportDesk/
+|-- home.py                  Main application and request handling
+|-- setup_db.py              Database setup, updates, and sample records
+|-- meridian.db              Saved application data
+|-- README.md.docx           This project guide, stored as Markdown text
+|-- templates/
+|   |-- index.html           Customer support form
+|   |-- confirmation.html    Submission confirmation and ticket number
+|   |-- my_tickets.html      Customer ticket list, uploads, and resolution
+|   |-- tickets.html         Staff ticket list and filters
+|   |-- report.html          Weekly ticket counts and resolution times
+|   `-- ticket_detail.html   Staff order details, conversation, and controls
+|-- tests/
+|   `-- test_app.py          Automated checks
+|-- .venv/                   Python environment used by our commands
+|-- .venv-1/                 Another Python environment in the workspace
+`-- __pycache__/             Automatically generated Python cache files
+```
+
+`static/uploads/` is created when needed to store uploaded photos.
+
+**Python** handles requests, checks input, and reads or changes saved records.
+ **Flask** connects browser URLs to Python functions. 
+ **SQLite** stores the records in one database file. 
+ **HTML** gives each page its structure, **CSS** controls its appearance, and **JavaScript** handles browser interactions such as filtering orders. 
+ **Jinja** inserts Python data into the HTML templates. CSS and JavaScript currently live inside the template files.
+
+## Where the flow starts in the code
+
+Running `home.py` reaches this block and starts the local web server:
+
+```python
+if __name__ == "__main__":
+    app.run(debug=True)
+```
+
+The customer workflow begins when the browser opens `/`. Flask calls `home()`:
+
+```python
+@app.get("/")
+def home():
+```
+
+That function reads customers and orders, then displays `index.html`. A GET request asks for information or a page; a POST request sends information for the application to save or change.
+
+| Browser action | URL | Function in home.py |
+|---|---|---|
+| Open the customer form | GET `/` | `home()` |
+| Submit an issue | POST `/submit` | `submit()` |
+| Open the customer ticket list | GET `/my-tickets` | `my_tickets()` |
+| Attach a photo to an existing ticket | POST `/my-tickets/<ticket_id>/photo` | `customer_attach_photo()` |
+| Resolve a customer ticket | POST `/my-tickets/<ticket_id>/resolve` | `customer_resolve_ticket()` |
+| Request order data for a customer | GET `/api/orders?customer_id=2` | `customer_orders()` |
+| Open the staff list | GET `/staff/tickets` | `staff_tickets()` |
+| Open the weekly support report | GET `/report` | `weekly_report()` |
+| Open one staff ticket page | GET `/staff/tickets/<ticket_id>` | `ticket_detail()` |
+| Change status from the staff page | POST `/staff/tickets/<ticket_id>/status` | `update_ticket_status()` |
+| Save a staff reply | POST `/staff/tickets/<ticket_id>/reply` | `add_ticket_reply()` |
+| Save a staff assignment | POST `/staff/tickets/<ticket_id>/assign` | `assign_ticket()` |
+
+`<ticket_id>` means the number of a particular ticket, such as `1`. The homepage currently filters the order data already supplied to its template; the orders API is also available as a separate data endpoint.
+
+## What the database stores
+
+Think of the database as a set of connected record books:
+
+| Table | What it stores |
+|---|---|
+| `customers` | Customer names and IDs |
+| `pharmacies` | Pharmacy names and cities |
+| `orders` | Order numbers, customers, pharmacies, and delivery statuses |
+| `tickets` | Reported issues, descriptions, statuses, assignment, and photo paths |
+| `ticket_messages` | Customer descriptions, optional resolution messages, and staff replies |
+| `status_history` | A record of ticket status changes |
+| `staff_users` | Sample staff details |
+| `reply_templates` | Reusable staff replies |
+
+The IDs connect these records. A ticket points to an order and a customer; the order points to a pharmacy. This lets the ticket page show the related details together.
+
+`setup_db.py` prepares these tables and adds missing columns to an existing database. Changing Python code alone does not add a column to an already-created SQLite table, which is why the photo feature required a database update.
+
+
+
+## Data model diagram
+
+The diagram below shows all eight database tables and how their records connect. A customer can place several orders and submit several tickets. Each ticket belongs to one customer and one order, and can have messages, status changes, an optional staff assignment, and an optional photo.
+
+```mermaid
+erDiagram
+    customers ||--o{ orders : places
+    pharmacies ||--o{ orders : handles
+    customers ||--o{ tickets : submits
+    orders ||--o{ tickets : has
+    staff_users |o--o{ tickets : assigned_to
+    tickets ||--o{ ticket_messages : contains
+    staff_users |o--o{ ticket_messages : writes
+    tickets ||--o{ status_history : records
+    staff_users |o--o{ status_history : changes
+
+    customers {
+        INTEGER id PK
+        TEXT name
+    }
+
+    pharmacies {
+        INTEGER id PK
+        TEXT name
+        TEXT city
+    }
+
+    orders {
+        INTEGER id PK
+        TEXT order_number UK
+        INTEGER customer_id FK
+        INTEGER pharmacy_id FK
+        TEXT delivery_status
+    }
+
+    tickets {
+        INTEGER id PK
+        INTEGER customer_id FK
+        INTEGER order_id FK
+        INTEGER assigned_staff_id FK "Optional"
+        TEXT issue_type
+        TEXT description
+        TEXT status
+        TEXT created_at
+        TEXT photo_path "Optional"
+    }
+
+    staff_users {
+        INTEGER id PK
+        TEXT name
+        TEXT email UK
+        TEXT role
+    }
+
+    ticket_messages {
+        INTEGER id PK
+        INTEGER ticket_id FK
+        INTEGER staff_user_id FK "Optional for customer messages"
+        TEXT sender_type
+        TEXT message
+        TEXT created_at
+    }
+
+    status_history {
+        INTEGER id PK
+        INTEGER ticket_id FK
+        TEXT old_status "Optional for initial entry"
+        TEXT new_status
+        INTEGER changed_by_staff_id FK "Optional for customer or initial changes"
+        TEXT changed_at
+    }
+
+    reply_templates {
+        INTEGER id PK
+        TEXT name UK
+        TEXT issue_type
+        TEXT body
+    }
+```
+
+
+## How to run the project
+
+Open PowerShell in the `MeridianSupportDesk` folder. If the existing `.venv` environment is available, use:
+
+```powershell
+.\.venv\Scripts\python.exe setup_db.py
+.\.venv\Scripts\python.exe home.py
+```
+
+
+Open `http://127.0.0.1:5000/` for the customer form and `http://127.0.0.1:5000/staff/tickets` for the staff dashboard. Keep the terminal running while using the app; press Ctrl+C to stop the server.
+
+Open `http://127.0.0.1:5000/report` to view the weekly support report. The template file is named `templates/report.html`.
+
+Run `setup_db.py` before first use and after database-schema updates. It checks for missing columns and inserts sample records without deleting existing tickets. Saving `home.py` or an HTML file does not update the database structure.
+
+To test staff email notifications, keep MailHog running alongside Flask. The application connects to `localhost:1025`; MailHog's default web inbox is `http://localhost:8025`. MailHog is a separate local service, so installing Flask alone does not start it.
+
+## How we checked the work
+
+The automated checks in `tests/test_app.py` use temporary databases and upload folders so they do not add demonstration tickets or photos to the real database.
+
+They cover ticket submission, staff views and replies, status updates, photo form submission, uploaded image retrieval, uploads to existing tickets, customer ownership, optional resolution messages, repeated resolution requests, and protection against resolving a Closed ticket. We also checked that a resolved customer ticket no longer displays the confirmation form.
+
+MailHog was added for local email testing, and a test email was sent successfully during setup. This is a manual email test; the current automated tests do not verify MailHog inbox delivery.
+
+Run the full test suite with:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -v
+```
+
+## Acknowledgment
+
+I used ChatGPT and Codex in the terminal tool to help me understand Flask, improve parts of the code, and troubleshoot errors.
+

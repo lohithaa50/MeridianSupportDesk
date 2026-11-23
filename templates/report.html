@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weekly Support Report</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 36px 20px;
+      background: #f4f8f6;
+      color: #18332f;
+      font-family: Arial, sans-serif;
+    }
+    main {
+      max-width: 900px;
+      margin: auto;
+    }
+    h1 { color: #145f50; }
+    p { color: #62746e; }
+    .card {
+      margin-top: 24px;
+      padding: 20px;
+      background: white;
+      border: 1px solid #dce8e2;
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    th, td {
+      padding: 14px 10px;
+      border-bottom: 1px solid #e7eeea;
+    }
+    th { color: #527068; font-size: 13px; }
+    a { color: #147d66; }
+  </style>
+</head>
+<body>
+  <main>
+    <p><a href="{{ url_for('home') }}">← Back to support form</a></p>
+    <h1>Weekly support report</h1>
+    <p>Tickets created during the last 7 days.</p>
+
+    <section class="card">
+      {% if rows %}
+        <table>
+          <thead>
+            <tr>
+              <th>Issue type</th>
+              <th>Tickets</th>
+              <th>Average resolution time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              <tr>
+                <td>{{ issue_labels.get(row[0], row[0]) }}</td>
+                <td>{{ row[1] }}</td>
+                <td>
+                  {% if row[2] is not none %}
+                    {{ row[2] }} hours
+                  {% else %}
+                    Not resolved yet
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>No tickets were created in the last 7 days.</p>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>

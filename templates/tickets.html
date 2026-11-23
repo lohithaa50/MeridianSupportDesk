@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Support tickets | Meridian</title>
+
+  <style>
+    :root {
+      font-family: Arial, Helvetica, sans-serif;
+      color: #20312c;
+      background: #f4f7f6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 36px 20px;
+    }
+
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #397363;
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 32px;
+    }
+
+    .intro {
+      margin: 8px 0 24px;
+      color: #61716b;
+    }
+
+    .filter-panel,
+    .table-panel {
+      overflow: hidden;
+      border: 1px solid #dce6e1;
+      border-radius: 12px;
+      background: white;
+      box-shadow: 0 4px 14px #233b3210;
+    }
+
+    .filter-panel {
+      margin-bottom: 20px;
+      padding: 20px;
+    }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(140px, 1fr)) auto auto;
+      gap: 14px;
+      align-items: end;
+    }
+
+    .filter-field label {
+      display: block;
+      margin-bottom: 6px;
+      color: #4f625b;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    select {
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 11px;
+      border: 1px solid #cbd8d2;
+      border-radius: 7px;
+      background: white;
+      color: #20312c;
+      font: inherit;
+    }
+
+    button,
+    .clear-button {
+      display: inline-flex;
+      min-height: 42px;
+      align-items: center;
+      justify-content: center;
+      padding: 9px 16px;
+      border: 0;
+      border-radius: 7px;
+      font: inherit;
+      font-weight: bold;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    button {
+      background: #147d66;
+      color: white;
+    }
+
+    button:hover {
+      background: #0f6653;
+    }
+
+    .clear-button {
+      border: 1px solid #cbd8d2;
+      background: white;
+      color: #3e554c;
+    }
+
+    .clear-button:hover {
+      background: #f2f7f4;
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    th,
+    td {
+      padding: 15px 16px;
+      border-bottom: 1px solid #e5ece8;
+      vertical-align: middle;
+    }
+
+    th {
+      background: #edf5f1;
+      color: #40554c;
+      font-size: 12px;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+    }
+
+    tbody tr:hover {
+      background: #fafcfb;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .ticket-link {
+      color: #147d66;
+      font-weight: bold;
+      text-decoration: none;
+    }
+
+    .ticket-link:hover {
+      text-decoration: underline;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 5px 9px;
+      border-radius: 20px;
+      background: #eef2f0;
+      color: #47564f;
+      font-size: 12px;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    .status--open {
+      background: #e8f0ff;
+      color: #315a9a;
+    }
+
+    .status--in-progress {
+      background: #e9f3ff;
+      color: #28618f;
+    }
+
+    .status--waiting-on-customer {
+      background: #fff2d9;
+      color: #805900;
+    }
+
+    .status--resolved {
+      background: #e5f5eb;
+      color: #286b3b;
+    }
+
+    .sla {
+      min-width: 155px;
+    }
+
+    .sla strong,
+    .sla small {
+      display: block;
+    }
+
+    .sla small {
+      margin-top: 4px;
+      font-size: 12px;
+    }
+
+    .sla--green {
+      background: #eff8f1;
+      color: #286b3b;
+    }
+
+    .sla--orange {
+      background: #fff6e8;
+      color: #805900;
+    }
+
+    .sla--red {
+      background: #fff0ef;
+      color: #9b3028;
+    }
+
+    .empty {
+      padding: 36px;
+      color: #61716b;
+      text-align: center;
+    }
+
+    @media (max-width: 900px) {
+      .filter-grid {
+        grid-template-columns: repeat(2, minmax(140px, 1fr));
+      }
+    }
+
+    @media (max-width: 560px) {
+      body {
+        padding: 24px 12px;
+      }
+
+      h1 {
+        font-size: 26px;
+      }
+
+      .filter-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .filter-grid button,
+      .filter-grid .clear-button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <p class="eyebrow">Meridian Support Desk</p>
+    <h1>Support tickets</h1>
+    <p class="intro">Review order issues, follow response targets, and manage customer requests.</p>
+
+    <section class="filter-panel" aria-label="Filter tickets">
+      <form class="filter-grid" method="get" action="/staff/tickets">
+        <div class="filter-field">
+          <label for="status">Status</label>
+          <select id="status" name="status">
+            <option value="">All statuses</option>
+            <option value="open" {% if selected_status == "open" %}selected{% endif %}>Open</option>
+            <option value="in progress" {% if selected_status == "in progress" %}selected{% endif %}>In progress</option>
+            <option value="waiting on customer" {% if selected_status == "waiting on customer" %}selected{% endif %}>Waiting on customer</option>
+            <option value="resolved" {% if selected_status == "resolved" %}selected{% endif %}>Resolved</option>
+          </select>
+        </div>
+
+        <div class="filter-field">
+          <label for="issue_type">Issue</label>
+          <select id="issue_type" name="issue_type">
+            <option value="">All issues</option>
+            <option value="late_delivery" {% if selected_issue == "late_delivery" %}selected{% endif %}>Late delivery</option>
+            <option value="missing_item" {% if selected_issue == "missing_item" %}selected{% endif %}>Missing item</option>
+            <option value="damaged_item" {% if selected_issue == "damaged_item" %}selected{% endif %}>Damaged item</option>
+            <option value="wrong_item" {% if selected_issue == "wrong_item" %}selected{% endif %}>Wrong item</option>
+            <option value="billing_question" {% if selected_issue == "billing_question" %}selected{% endif %}>Billing question</option>
+            <option value="other" {% if selected_issue == "other" %}selected{% endif %}>Other</option>
+          </select>
+        </div>
+
+        <div class="filter-field">
+          <label for="pharmacy_id">Pharmacy</label>
+          <select id="pharmacy_id" name="pharmacy_id">
+            <option value="">All pharmacies</option>
+            {% for pharmacy in pharmacies %}
+              <option value="{{ pharmacy[0] }}"
+                {% if selected_pharmacy == pharmacy[0]|string %}selected{% endif %}>
+                {{ pharmacy[1] }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="filter-field">
+          <label for="age">Ticket age</label>
+          <select id="age" name="age">
+            <option value="">Any age</option>
+            <option value="under_24_hours" {% if selected_age == "under_24_hours" %}selected{% endif %}>Under 24 hours</option>
+            <option value="over_24_hours" {% if selected_age == "over_24_hours" %}selected{% endif %}>Over 24 hours</option>
+          </select>
+        </div>
+
+        <button type="submit">Apply filters</button>
+        <a class="clear-button" href="/staff/tickets">Clear filters</a>
+      </form>
+    </section>
+
+    <section class="table-panel">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Ticket</th>
+              <th>Customer</th>
+              <th>Order</th>
+              <th>Pharmacy</th>
+              <th>Issue</th>
+              <th>Status</th>
+              <th>Response target</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for ticket in tickets %}
+              {% set sla = sla_by_ticket[ticket[0]] %}
+              <tr>
+                <td>
+                  <a class="ticket-link" href="/staff/tickets/{{ ticket[0] }}">
+                    #{{ ticket[0] }}
+                  </a>
+                </td>
+                <td>{{ ticket[1] }}</td>
+                <td>{{ ticket[2] }}</td>
+                <td>{{ ticket[3] }}</td>
+                <td>{{ ticket[4].replace("_", " ").title() }}</td>
+                <td>
+                  <span class="status status--{{ ticket[5].replace(' ', '-') }}">
+                    {{ ticket[5].title() }}
+                  </span>
+                </td>
+                <td class="sla sla--{{ sla.color }}">
+                  <strong>{{ sla.label }}</strong>
+                  <small>Target: {{ sla.target_hours }} hours</small>
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td class="empty" colspan="7">No tickets match these filters.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
